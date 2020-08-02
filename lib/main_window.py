@@ -14,6 +14,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.annotations = []
         self.init_ui()
         self.mode = 1
+        self.clipboard_read()
 
     def init_ui(self):
         self.set_title('Annotate')
@@ -55,6 +56,8 @@ class MainWindow(Gtk.ApplicationWindow):
     def on_area_button_press(self, _widget, event):
         point = (event.x, event.y)
         if self.mode == 3:
+            if not self.entry.get_text():
+                self.entry.set_text('Text')
             annotation = TextAnnotation(self.entry.get_text(), font_size=24, rgba=(255, 0, 0, 0.75))
         elif self.mode == 2:
             annotation = MarkerAnnotation(line_width=4, rgba=(255, 0, 0, 0.75))
@@ -85,7 +88,7 @@ class MainWindow(Gtk.ApplicationWindow):
         toolbar = Gtk.Toolbar.new()
         toolbar.expand = True
 
-        button_get = create_tool_button('edit-paste', self.clipboard_read)
+        button_get = create_tool_button('edit-paste', lambda _: self.clipboard_read())
         toolbar.insert(button_get, 0)
 
         toolbar.insert(create_tool_separator(), -1)
@@ -138,7 +141,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         toolbar.insert(create_tool_separator(expand=True), -1)
 
-        button_set = create_tool_button('document-save', self.clipboard_write)
+        button_set = create_tool_button('document-save', lambda _: self.clipboard_write())
         toolbar.insert(button_set, -1)
 
         return toolbar
@@ -147,13 +150,14 @@ class MainWindow(Gtk.ApplicationWindow):
         for ann in self.annotations:
             ann.render(cr)
 
-    def clipboard_read(self, _widget):
+    def clipboard_read(self):
         image = self.clipboard.wait_for_image()
         if image is not None:
             self.img_surface = Gdk.cairo_surface_create_from_pixbuf(image, 0, None)
+            self.annotations.clear()
             self.update()
 
-    def clipboard_write(self, _widget):
+    def clipboard_write(self):
         surface = self.img_surface.create_similar_image(self.img_surface.get_format(),
             self.img_surface.get_width(), self.img_surface.get_height())
         cr = cairo.Context(surface)
