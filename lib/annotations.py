@@ -1,5 +1,7 @@
 import math
 
+import cairo
+
 
 class Annotation():
 
@@ -26,9 +28,7 @@ class MarkerAnnotation(Annotation):
         self.points.append(point)
 
     def on_move(self, point):
-        last_point = self.points[-1]
-        if (distance(point, last_point) > 10):
-            self.points.append(point)
+        self.points.append(point)
 
     def on_release(self, point):
         self.points.append(point)
@@ -36,10 +36,9 @@ class MarkerAnnotation(Annotation):
     def render(self, cr):
         if self.points:
             cr.set_line_width(self.line_width)
+            cr.set_line_join(cairo.LINE_JOIN_BEVEL)
             cr.set_source_rgba(*((0, 0, 0) if self.rgba is None else self.rgba))
-            cr.move_to(*self.points[0])
-            for point in self.points[1:]:
-                cr.line_to(*point)
+            render_path(cr, reduce_path(self.points))
             cr.stroke()
 
 class TextAnnotation(Annotation):
@@ -64,7 +63,47 @@ class TextAnnotation(Annotation):
             cr.show_text(self.text)
             cr.stroke()
 
+def reduce_path(points):
+    reduced = []
+    for point in points[:-1]:
+        if not reduced or (distance(point, reduced[-1]) > 5):
+            reduced.append(point)
+    if len(reduced) > 2 and len(points) > 2:
+        if distance(reduced[-1], points[-1]) < 5:
+            reduced.pop()
+    reduced.append(points[-1])
+    return reduced
+
+def render_path(cr, points):
+    if points:
+        cr.move_to(*points[0])
+        def p(i):
+            return points[i] if 0 <= i < len(points) else None
+        for i in range(1, len(points)):
+            cs = calc_control_points(p(i - 1), p(i - 2), p(i))
+            ce = calc_control_points(p(i), p(i - 1), p(i + 1), True)
+            cr.curve_to(*cs, *ce, *p(i))
+
+def calc_control_points(curr_point, prev_point, next_point, reverse=False):
+    c = curr_point
+    p = prev_point or c
+    n = next_point or c
+    a = angle(p, n)
+    d = distance(p, n)
+    rev = math.pi if reverse else 0
+    smoothing = 0.2
+
+    x = c[0] + math.cos(a + rev) * d * smoothing
+    y = c[1] + math.sin(a + rev) * d * smoothing
+
+    return [x, y]
+
 def distance(point1, point2):
-    dx = math.fabs(point1[0] - point2[0])
-    dy = math.fabs(point1[1] - point2[1])
+    dx = point2[0] - point1[0]
+    dy = point2[1] - point1[1]
     return math.sqrt(dx ** 2 + dy ** 2)
+
+def angle(point1, point2):
+    dx = point2[0] - point1[0]
+    dy = point2[1] - point1[1]
+    return math.atan2(dy, dx)

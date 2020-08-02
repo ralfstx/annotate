@@ -58,11 +58,11 @@ class MainWindow(Gtk.ApplicationWindow):
         if self.mode == 3:
             if not self.entry.get_text():
                 self.entry.set_text('Text')
-            annotation = TextAnnotation(self.entry.get_text(), font_size=24, rgba=(255, 0, 0, 0.75))
+            annotation = TextAnnotation(self.entry.get_text(), font_size=18, rgba=(255, 0, 0))
         elif self.mode == 2:
             annotation = MarkerAnnotation(line_width=4, rgba=(255, 0, 0, 0.75))
         else:
-            annotation = MarkerAnnotation(line_width=24, rgba=(255, 255, 0, 0.35))
+            annotation = MarkerAnnotation(line_width=24, rgba=(255, 227, 0, 0.4))
         annotation.on_press(point)
         self.annotations.append(annotation)
         self.update()
@@ -103,7 +103,7 @@ class MainWindow(Gtk.ApplicationWindow):
             cr.fill()
             if tool == 1:
                 cr.set_line_width(12)
-                cr.set_source_rgba(255, 255, 0, 0.35)
+                cr.set_source_rgba(255, 127, 0, 0.4)
                 cr.move_to(2, 12)
                 cr.line_to(22, 12)
                 cr.stroke()
@@ -177,7 +177,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self.draw_annotations(cr)
 
     def select_mode(self, mode):
-        print('selected mode', mode)
         if mode == 3:
             self.entry.set_editable(True)
         self.mode = mode
