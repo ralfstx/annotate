@@ -27,7 +27,6 @@ class Application(Gtk.Application):
     def do_activate(self):
         if not self.window:
             self.window = MainWindow(self)
-            self.window.show_all()
         self.window.present()
 
     def do_command_line(self, command_line):

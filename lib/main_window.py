@@ -9,18 +9,20 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def __init__(self, app, *args, **kwargs):
         super(MainWindow, self).__init__(*args, application=app, **kwargs)
+        self.connect('delete-event', Gtk.main_quit)
         self.clipboard = Gtk.Clipboard.get(Gdk.SELECTION_CLIPBOARD)
         self.img_surface = None
         self.annotations = []
         self.init_ui()
         self.mode = 1
         self.clipboard_read()
+        self.show_all()
+        self.update_ui()
 
     def init_ui(self):
         self.set_title('Annotate')
         self.set_size_request(400, 250)
         self.set_position(Gtk.WindowPosition.CENTER)
-
         box = Gtk.Box(spacing=2, orientation=Gtk.Orientation.VERTICAL)
         button_view = self.create_button_view()
         box.pack_start(button_view, False, False, 0)
@@ -29,10 +31,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self.draw_area = self.create_drawarea()
         box.pack_start(self.draw_area, True, True, 0)
         self.add(box)
-
-        self.connect('delete-event', Gtk.main_quit)
-        self.show_all()
-
 
     def create_entry(self):
         entry = Gtk.Entry()
@@ -65,24 +63,25 @@ class MainWindow(Gtk.ApplicationWindow):
             annotation = MarkerAnnotation(line_width=24, rgba=(255, 227, 0, 0.4))
         annotation.on_press(point)
         self.annotations.append(annotation)
-        self.update()
+        self.update_drawing()
 
     def on_area_button_release(self, _widget, event):
         point = (event.x, event.y)
         self.annotations[-1].on_release(point)
-        self.update()
+        self.update_drawing()
+        self.update_ui()
 
     def on_area_motion_notify(self, _widget, event):
         point = (event.x, event.y)
         self.annotations[-1].on_move(point)
-        self.update()
+        self.update_drawing()
 
     def on_text_change(self, entry):
         if self.annotations:
             ann = self.annotations[-1]
             if isinstance(ann, TextAnnotation):
                 ann.text = entry.get_text()
-                self.update()
+                self.update_drawing()
 
     def create_button_view(self):
         toolbar = Gtk.Toolbar.new()
@@ -136,13 +135,13 @@ class MainWindow(Gtk.ApplicationWindow):
 
         toolbar.insert(create_tool_separator(), -1)
 
-        button_undo = create_tool_button('edit-undo', self.undo)
-        toolbar.insert(button_undo, -1)
+        self.button_undo = create_tool_button('edit-undo', self.undo)
+        toolbar.insert(self.button_undo, -1)
 
         toolbar.insert(create_tool_separator(expand=True), -1)
 
-        button_set = create_tool_button('document-save', lambda _: self.clipboard_write())
-        toolbar.insert(button_set, -1)
+        self.button_set = create_tool_button('document-save', lambda _: self.clipboard_write())
+        toolbar.insert(self.button_set, -1)
 
         return toolbar
 
@@ -155,7 +154,10 @@ class MainWindow(Gtk.ApplicationWindow):
         if image is not None:
             self.img_surface = Gdk.cairo_surface_create_from_pixbuf(image, 0, None)
             self.annotations.clear()
-            self.update()
+            self.update_drawing()
+            self.update_ui()
+            self.draw_area.set_size_request(min(Gdk.Screen.width() * 0.8, image.get_width()),
+                                            min(Gdk.Screen.height() * 0.8, image.get_height()))
 
     def clipboard_write(self):
         surface = self.img_surface.create_similar_image(self.img_surface.get_format(),
@@ -177,16 +179,23 @@ class MainWindow(Gtk.ApplicationWindow):
         self.draw_annotations(cr)
 
     def select_mode(self, mode):
-        if mode == 3:
-            self.entry.set_editable(True)
         self.mode = mode
+        self.update_ui()
 
     def undo(self, _widget):
         if len(self.annotations):
             self.annotations.pop()
-            self.update()
+            self.update_drawing()
+            self.update_ui()
 
-    def update(self):
+    def update_ui(self):
+        self.entry.set_visible(self.mode == 3)
+        if self.mode == 3:
+            self.entry.grab_focus()
+        self.button_set.set_sensitive(len(self.annotations) > 0)
+        self.button_undo.set_sensitive(len(self.annotations) > 0)
+
+    def update_drawing(self):
         self.draw_area.queue_draw()
 
 def create_tool_button(icon_name, callback):
